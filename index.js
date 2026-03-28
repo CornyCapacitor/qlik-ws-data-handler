@@ -1,11 +1,14 @@
+import dotenv from 'dotenv'
 import express from 'express'
 import WebSocket from 'ws'
 const app = express()
 
-const PORT = 3474
-const tenantUrl = 'haflsxq4uerhm9k.eu'
-const appId = 'd1935524-4eec-487a-bd7c-c44b0f5ad604'
-const apiKey = 'eyJhbGciOiJFUzM4NCIsImtpZCI6ImIzNzI1ZDliLTY4OWUtNGFiOC04MDhmLTFiZmNiMGEzYjE3MiIsInR5cCI6IkpXVCJ9.eyJzdWJUeXBlIjoidXNlciIsInRlbmFudElkIjoiMFU5aUhaQnRmSU5YVUtnZEVLX1NxdEwzbnItclNOTXoiLCJqdGkiOiJiMzcyNWQ5Yi02ODllLTRhYjgtODA4Zi0xYmZjYjBhM2IxNzIiLCJhdWQiOiJxbGlrLmFwaSIsImlzcyI6InFsaWsuYXBpL2FwaS1rZXlzIiwic3ViIjoiNjljMjU1N2RhMmFmZGVhMDY4MTMzNTllIn0.aWsoIRmDRWVAd494aD-dcEGG5TeQsVnDzzYptV8UO1_CRZk7VzSLxH_zfsmFXs65DTyk-pP5EerD362cNRzhPwzqRpXtbrGIrmm8WgPukbWu9sqQwJsPl_pTdEly7R6V'
+dotenv.config()
+
+const PORT = process.env.PORT
+const tenantUrl = process.env.TENANTURL
+const appId = process.env.APPID
+const apiKey = process.env.APIKEY
 
 // JSON Middleware
 app.use(express.json())
@@ -27,114 +30,99 @@ app.get('/qlik', async (req, res) => {
     console.log('-----')
     console.log(`Connected to App:${appId}`)
 
-    let appHandle
-    let cubeHandle
+    // ##### 0 - websocket variables #####
+    let appHandle = null
+    let dataTables = null
 
-    // Get into the app
+    // ##### 1 - Getting into the app #####
     ws.send(JSON.stringify({
       jsonrpc: '2.0',
       id: 1,
-      method: "OpenDoc",
+      method: 'OpenDoc',
       handle: -1,
-      params: [`${appId}`]
-    }))
+      params: [appId]
+    }));
 
-    // Returning message handler
     ws.on('message', (msg) => {
       const data = JSON.parse(msg.toString())
-      console.log('-----')
-      console.log('Qlik response:', data)
 
-      // If no data, return
       if (!data.id) return
 
-      // ##### 1 #####
+      console.log('-----')
+      console.log(`Qlik response (id: ${data.id}):`, data)
 
-      // If data, proceed
       if (data.id === 1) {
         appHandle = data.result.qReturn.qHandle
 
-        console.log('-----')
-        console.log('App handle:', appHandle)
+        if (!appHandle) return
 
-        // Data model download
+        // ##### 2 - Getting information about tables #####
         ws.send(JSON.stringify({
-          jsonrpc: '2.0',
+          jsonrpc: "2.0",
           id: 2,
-          method: 'CreateSessionObject',
           handle: appHandle,
-          params: [{
-            qInfo: { qType: 'test' },
-            qHyperCubeDef: {
-              qDimensions: [],
-              qMeasures: [
-                { qDef: { qDef: 'Count(*)' } }
-              ],
-              qInitialDataFetch: [{
-                qTop: 0,
-                qLeft: 0,
-                qHeight: 1,
-                qWidth: 1
-              }]
-            }
-          }]
-        }))
+          method: "GetTablesAndKeys",
+          params: {
+            qWindowSize: {
+              qcx: 123,
+              qcy: 123
+            },
+            qNullSize: {
+              qcx: 123,
+              qcy: 123
+            },
+            qCellHeight: 123,
+            qSyntheticMode: true,
+            qIncludeSysVars: true,
+            qIncludeProfiling: true
+          }
+        })
+        )
       }
 
-      // ##### 2 #####
-
-      // Handling CreateSessionObject creation & sending GetLayout request
       if (data.id === 2) {
-        cubeHandle = data.result.qReturn.qHandle;
+        dataTables = data.result.qtr.map(table => ({
+          name: table.qName,
+          columnCount: table.qFields.length,
+          columns: table.qFields.map(column => column.qName),
+          rowCount: table.qNoOfRows,
+          rows: []
+        }))
 
-        console.log('-----')
-        console.log('Cube handle:', cubeHandle);
+        console.log('Data tables:', dataTables)
 
-        // 🔥 TERAZ pobieramy dane
+        // ##### 3 - Getting information about single table #####
         ws.send(JSON.stringify({
           jsonrpc: '2.0',
           id: 3,
-          method: 'GetLayout',
-          handle: cubeHandle,
-          params: []
+          method: 'GetTableData',
+          handle: appHandle,
+          params: {
+            qOffset: 0,
+            qRows: dataTables[0].rowCount,
+            qSyntheticMode: false,
+            qTableName: dataTables[0].name
+          }
         }));
       }
 
-      // ##### 3 #####
-
       if (data.id === 3) {
-        const cube = data.result.qLayout.qHyperCube
-        const info = data.result.qLayout.qInfo
-        const meta = data.result.qLayout.qMeta
-        const rawData = JSON.stringify(cube, null, 2)
+        const tableData = data.result
+        const dataRows = tableData.qData.map(row => {
+          const rowObj = {}
+          row.qValue.forEach((cell, idx) => {
+            rowObj[dataTables[0].columns[idx]] = cell.qText
+          })
+          return rowObj
+        })
 
-        console.log('-----')
-        console.log('RAW DATA:', rawData);
+        dataTables[0].rows = dataRows
 
-        console.log('-----')
-        console.log('cube:', cube);
+        console.log('dataTables[0]:', dataTables[0])
 
-        console.log('-----')
-        console.log('info:', info);
-
-        console.log('-----')
-        console.log('meta:', meta);
-
-        ws.close();
+        res.send(dataTables[0])
       }
     })
-
-    // ##### 4 #####
-
-    ws.send(JSON.stringify({
-      jsonrpc: '2.0',
-      id: 4,
-      method: 'GetTablesAndKeys',
-      handle: appHandle,
-      params: [{
-        qWindowSize: { qcx: 1000, qcy: 1000 }
-      }]
-    }))
 
     ws.on('close', () => {
       console.log('-----')
@@ -142,7 +130,6 @@ app.get('/qlik', async (req, res) => {
     })
   })
 })
-
 
 
 // App Listening

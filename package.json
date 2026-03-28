@@ -4,14 +4,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Mateusz Minder",
   "license": "ISC",
-  "description": "",
+  "description": "A sample express server to get data from certain Qlik application",
   "dependencies": {
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "ws": "^8.20.0"
   },
