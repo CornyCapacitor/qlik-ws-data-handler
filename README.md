@@ -66,4 +66,4 @@ npm start
 
 ### 5. Visit your server landing page
 
-##### After starting the server, open your browser at `http://localhost:3474` to see the landing page with:
+##### After starting the server, open your browser at `http://localhost:PORT` to see the landing page with:
