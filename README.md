@@ -18,7 +18,7 @@ To run the server correctly, create a `.env` file in the project root.
 
 ### Example Usage in Code
 
-# .env
+#### .env
 
 ```env
 PORT=3474
@@ -28,7 +28,7 @@ APIKEY=eyJhbGciOiJFUzM4NCIsImtpZCI6ImU4OGQ5ZTFiLWQwODktNGRjNy04MmYyLWYwZjAyZjUwM
 SYSTEM_TABLES=0
 ```
 
-# index.js
+#### index.js
 
 ```javascript
 const PORT = process.env.PORT
