@@ -1,22 +1,33 @@
-import dotenv from 'dotenv'
-import express from 'express'
-import WebSocket from 'ws'
-const app = express()
+// Imports
+import dotenv from 'dotenv'; // .env reading
+import express from 'express'; // server establishing
+import os from 'os'; // getting server IP number
+import path from 'path'; // serving static files
+import WebSocket from 'ws'; // websocket establishing
 
+// Tools setup
+const app = express()
+app.use(express.json())
 dotenv.config()
 
+// Defining env variables setup
 const PORT = process.env.PORT
 const tenantUrl = process.env.TENANTURL
 const appId = process.env.APPID
 const apiKey = process.env.APIKEY
+const systemTables = process.env.SYSTEM_TABLES === '1'
 
-// JSON Middleware
-app.use(express.json())
+// Home page
+app.get('/', (_, res) => {
+  res.sendFile(path.join(process.cwd(), 'interface', 'index.html'))
+})
 
-// Get Qlik data
-app.get('/qlik', async (req, res) => {
+// Main server endpoint logic to fetch tables data
+app.get('/qlik', async (_, res) => {
   console.log('-----')
   console.log('Trying to acess /qlik')
+
+  // Establishing websocket connection and storing it inside ws variable
   const ws = new WebSocket(
     `wss://${tenantUrl}.qlikcloud.com/app/${appId}`,
     {
@@ -26,15 +37,17 @@ app.get('/qlik', async (req, res) => {
     }
   )
 
+  // "Open" websocket event
   ws.on('open', () => {
     console.log('-----')
     console.log(`Connected to App:${appId}`)
 
-    // ##### 0 - websocket variables #####
+    // Defining websocket variables
     let appHandle = null
     let dataTables = null
+    let tableRequesterId = 100
 
-    // ##### 1 - Getting into the app #####
+    // Requesting app connection
     ws.send(JSON.stringify({
       jsonrpc: '2.0',
       id: 1,
@@ -43,20 +56,26 @@ app.get('/qlik', async (req, res) => {
       params: [appId]
     }));
 
+    // "Message" websocket event inside "Open"
     ws.on('message', (msg) => {
+      // Parsing data received to JSON
       const data = JSON.parse(msg.toString())
 
+      // Check if message received has ID
       if (!data.id) return
 
       console.log('-----')
       console.log(`Qlik response (id: ${data.id}):`, data)
 
+      // Reading app connection request
       if (data.id === 1) {
+        // Storing websocket handle value for this unique connection inside "appHandle" variable
         appHandle = data.result.qReturn.qHandle
 
+        // Check if message received an appHandle ID
         if (!appHandle) return
 
-        // ##### 2 - Getting information about tables #####
+        // Requesting tables information
         ws.send(JSON.stringify({
           jsonrpc: "2.0",
           id: 2,
@@ -80,21 +99,27 @@ app.get('/qlik', async (req, res) => {
         )
       }
 
+      // Reading tables information request
       if (data.id === 2) {
-        dataTables = data.result.qtr.map(table => ({
-          name: table.qName,
-          columnCount: table.qFields.length,
-          columns: table.qFields.map(column => column.qName),
-          rowCount: table.qNoOfRows,
-          rows: []
-        }))
+        // Storing basic tables information inside "dataTables" variable
+        dataTables = data.result.qtr
+          .map(table => ({
+            name: table.qName,
+            columnCount: table.qFields.length,
+            columns: table.qFields.map(column => column.qName),
+            rowCount: table.qNoOfRows,
+            rows: []
+          }))
 
-        console.log('Data tables:', dataTables)
+        // Additional filtering based on SYSTEM_TABLES setting inside .env (0 - filters system tables, 1 - load system tables and its data)
+        if (!systemTables) {
+          dataTables = dataTables.filter(table => !table.name.startsWith('$$SysTable'))
+        }
 
-        // ##### 3 - Getting information about single table #####
+        // Requesting first table which starts table request loop
         ws.send(JSON.stringify({
           jsonrpc: '2.0',
-          id: 3,
+          id: tableRequesterId,
           method: 'GetTableData',
           handle: appHandle,
           params: {
@@ -106,24 +131,50 @@ app.get('/qlik', async (req, res) => {
         }));
       }
 
-      if (data.id === 3) {
+      // Light repeatable approach to handle every data request separately. This block of code simply reads responses from websocket about requested table matching its id with already stored basic tables variable and if there are still tables that need to download rows, it requests another and prepares for another data reading. The reason why index of 100 is used simply implies that this block of code while should not be changed, can be executed after several other custom ids above, in order to prevent id usage doublet
+      if (data.id >= tableRequesterId) {
+        // Defining basic variables for concatenation & verification
+        const index = data.id - tableRequesterId
+        const table = dataTables[index]
+
+        // Reading table rows from websocket response
         const tableData = data.result
         const dataRows = tableData.qData.map(row => {
           const rowObj = {}
-          row.qValue.forEach((cell, idx) => {
-            rowObj[dataTables[0].columns[idx]] = cell.qText
+          row.qValue.forEach((cell, i) => {
+            rowObj[table.columns[i]] = cell.qText
           })
           return rowObj
         })
 
-        dataTables[0].rows = dataRows
+        // Saving table rows information to specific table inside dataTables variable
+        table.rows = dataRows
 
-        console.log('dataTables[0]:', dataTables[0])
+        // If there are still tables left that need the rows data, send another incremental request
+        if (index + 1 < dataTables.length) {
+          ws.send(JSON.stringify({
+            jsonrpc: '2.0',
+            id: (tableRequesterId + index + 1),
+            method: 'GetTableData',
+            handle: appHandle,
+            params: {
+              qOffset: 0,
+              qRows: dataTables[index + 1].rowCount,
+              qSyntheticMode: false,
+              qTableName: dataTables[index + 1].name
+            }
+          }))
+          // If everything is loaded, send response of dataTables variable
+        } else {
+          res.send(dataTables)
 
-        res.send(dataTables[0])
+          // Close connection when everything is done
+          ws.close()
+        }
       }
     })
 
+    // On closing wesbocket connection, send information to the console
     ws.on('close', () => {
       console.log('-----')
       console.log(`Disconnected from App:${appId}`)
@@ -131,8 +182,23 @@ app.get('/qlik', async (req, res) => {
   })
 })
 
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
 
-// App Listening
+  for (const name in interfaces) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+
+  return 'localhost';
+}
+
+// Starting the server
 app.listen(PORT, () => {
-  console.log(`Server's running on http://localhost:${PORT}`)
+  const ip = getLocalIP()
+
+  console.log(`Server's running at http://${ip}:${PORT}`)
 })
