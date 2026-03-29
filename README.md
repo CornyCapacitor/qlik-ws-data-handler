@@ -63,7 +63,3 @@ SYSTEM_TABLES=0
 ```powershell
 npm start
 ```
-
-### 5. Visit your server landing page
-
-##### After starting the server, open your browser at `http://localhost:PORT` to see the landing page with:
