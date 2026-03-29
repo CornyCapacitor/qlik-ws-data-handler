@@ -10,6 +10,9 @@ const app = express()
 app.use(express.json())
 dotenv.config()
 
+// Serving static files from interface folder
+app.use(express.static(path.join(process.cwd(), 'interface')));
+
 // Defining env variables setup
 const PORT = process.env.PORT
 const tenantUrl = process.env.TENANTURL

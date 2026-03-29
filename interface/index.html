@@ -15,30 +15,49 @@
       align-items: center;
       height: 100vh;
       margin: 0;
-      font-family: Arial, sans-serif;
+      font-family: "Courier New", Courier, monospace;
       text-align: center;
+      gap: 10px;
     }
 
     h1 {
       font-size: 4rem;
-      margin-bottom: 1rem;
       color: #cccccc;
+      margin: 0;
     }
 
     p {
       font-size: 1.5rem;
       color: #cccccc;
+      margin: 0;
     }
 
     a {
       color: #cccccc;
     }
+
+    img {
+      border-radius: 8px;
+      box-shadow: 2px 2px 6px #cccccc;
+    }
+
+    div {
+      display: flex;
+      gap: 10px;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 
 <body>
-  <h1>Qlik API Engine test</h1>
-  <p>Visit <a href="/qlik" target="_blank"><code>/qlik</code></a> in order to preview set data</p>
+  <h1>QLIK API ENGINE TEST</h1>
+  <p>Visit <a href="/qlik" target="_blank"><code>/qlik</code></a> to preview data</p>
+  <p>Visit <a href="https://github.com/CornyCapacitor/qlik-ws-data-handler" target="_blank"><code>GitHub</code></a> page
+    to read server specification</p>
+  <div>
+    <img src="qlik-script.png" />
+    <img src="qlik-model.png" />
+  </div>
 </body>
 
 </html>
