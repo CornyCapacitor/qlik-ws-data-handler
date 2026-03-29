@@ -30,6 +30,8 @@ const systemTables = process.env.SYSTEM_TABLES === '1'
 
 ## Running server
 
+Make sure you have Node.js installed. If not, download it [here](https://nodejs.org/en/download/).
+
 ### 1. Clone the code via `git clone` or download repository directly from github
 ##### This will clone this repository to your local machine.
 
@@ -61,3 +63,7 @@ SYSTEM_TABLES=0
 ```powershell
 npm start
 ```
+
+### 5. Visit your server landing page
+
+##### After starting the server, open your browser at `http://localhost:3474` to see the landing page with:
