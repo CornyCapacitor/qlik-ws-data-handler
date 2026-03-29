@@ -18,7 +18,7 @@ To run the server correctly, create a `.env` file in the project root.
 
 ### Variables usage in Code
 
-#### index.js
+##### index.js
 
 ```javascript
 const PORT = process.env.PORT
@@ -30,19 +30,22 @@ const systemTables = process.env.SYSTEM_TABLES === '1'
 
 ## Running server
 
-### 1. Clone the code via `git clone` or download repo directly from github
+### 1. Clone the code via `git clone` or download repository directly from github
+##### This will clone this repository to your local machine.
 
 ```powershell
 git clone https://github.com/CornyCapacitor/qlik-ws-data-handler
 ```
 
 ### 2. Install dependencies
+##### Install all required Node.js packages to run the server.
 
 ```powershell
 npm install
 ```
 
-### 3. Create .env file in root directory, for example:
+### 3. Create .env file in root directory
+##### Create a .env file in the project root to provide configuration values for connecting to your Qlik app using websocket.
 
 ```env
 PORT=3474
@@ -53,6 +56,7 @@ SYSTEM_TABLES=0
 ```
 
 ### 4. Start server
+##### Run the server on the port specified in your .env. After starting, open your browser at http://localhost:PORT to see the landing page.
 
 ```powershell
 npm start
