@@ -78,3 +78,5 @@ npm start
 | `rows` |Array of row objects, each containing key-value pairs corresponding to column names and their values. |
 
 Note: The time field is calculated per table and reflects the total fetch duration, which can help identify slower tables in your Qlik app.
+
+##### Note - average time of downloading 1.000.000 rows equals ~41.18 seconds

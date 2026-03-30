@@ -36,7 +36,9 @@ app.get('/qlik', async (_, res) => {
     {
       headers: {
         Authorization: `Bearer ${apiKey}`
-      }
+      },
+      // Changing max payload size
+      maxPayload: Infinity
     }
   )
 
