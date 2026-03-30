@@ -63,3 +63,18 @@ SYSTEM_TABLES=0
 ```powershell
 npm start
 ```
+
+## Reading the response
+
+##### Each table in the response follows a consistent structure. Here’s a description of the fields you can expect:
+
+| Variable | Description |
+|----------|-------------|
+| `name` | The name of the table |
+| `columnCount` | Number of columns in the table. |
+| `columns` | Array of column names. |
+| `rowCount` | Number of rows in the table. |
+| `time` | Time taken to fetch the table, measured from sending the request to receiving the response (in seconds). |
+| `rows` |Array of row objects, each containing key-value pairs corresponding to column names and their values. |
+
+Note: The time field is calculated per table and reflects the total fetch duration, which can help identify slower tables in your Qlik app.

@@ -49,6 +49,7 @@ app.get('/qlik', async (_, res) => {
     let appHandle = null
     let dataTables = null
     let tableRequesterId = 100
+    const timeTrack = new Map()
 
     // Requesting app connection
     ws.send(JSON.stringify({
@@ -111,6 +112,7 @@ app.get('/qlik', async (_, res) => {
             columnCount: table.qFields.length,
             columns: table.qFields.map(column => column.qName),
             rowCount: table.qNoOfRows,
+            time: null,
             rows: []
           }))
 
@@ -132,6 +134,12 @@ app.get('/qlik', async (_, res) => {
             qTableName: dataTables[0].name
           }
         }));
+
+        // Saving first timestamp request to timeTrack variable
+        timeTrack.set(tableRequesterId, {
+          requestTime: performance.now(),
+          responseTime: null
+        })
       }
 
       // Light repeatable approach to handle every data request separately. This block of code simply reads responses from websocket about requested table matching its id with already stored basic tables variable and if there are still tables that need to download rows, it requests another and prepares for another data reading. The reason why index of 100 is used simply implies that this block of code while should not be changed, can be executed after several other custom ids above, in order to prevent id usage doublet
@@ -150,6 +158,16 @@ app.get('/qlik', async (_, res) => {
           return rowObj
         })
 
+        // Save response time for calculation
+        const timing = timeTrack.get(data.id)
+        if (timing) {
+          timing.responseTime = performance.now()
+
+          const duration = timing.responseTime - timing.requestTime
+          dataTables[index].time = Math.round((duration / 1000) * 100) / 100
+          console.log(`⏱️ ${dataTables[index].name}: ${duration.toFixed(2)} ms`)
+        }
+
         // Saving table rows information to specific table inside dataTables variable
         table.rows = dataRows
 
@@ -167,6 +185,13 @@ app.get('/qlik', async (_, res) => {
               qTableName: dataTables[index + 1].name
             }
           }))
+
+          // Save request time for calculation
+          timeTrack.set((tableRequesterId + index + 1), {
+            requestTime: performance.now(),
+            responseTime: null
+          })
+
           // If everything is loaded, send response of dataTables variable
         } else {
           res.send(dataTables)
@@ -185,6 +210,7 @@ app.get('/qlik', async (_, res) => {
   })
 })
 
+// Getting local IP for app.listen console.log
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
 
