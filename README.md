@@ -39,14 +39,21 @@ Make sure you have Node.js installed. If not, download it [here](https://nodejs.
 git clone https://github.com/CornyCapacitor/qlik-ws-data-handler
 ```
 
-### 2. Install dependencies
+### 2. Change directory after cloning the repository (if the repository was downloaded directly from GitHub, just open this folder in code editor)
+##### This will change terminal focus on downloaded repository.
+
+```powershell
+git clone https://github.com/CornyCapacitor/qlik-ws-data-handler
+```
+
+### 3. Install dependencies
 ##### Install all required Node.js packages to run the server.
 
 ```powershell
 npm install
 ```
 
-### 3. Create .env file in root directory
+### 4. Create .env file in root directory
 ##### Create a .env file in the project root to provide configuration values for connecting to your Qlik app using websocket.
 
 ```env
@@ -57,7 +64,7 @@ APIKEY=eyJhbGciOiJFUzM4NCIsImtpZCI6ImU4OGQ5ZTFiLWQwODktNGRjNy04MmYyLWYwZjAyZjUwM
 SYSTEM_TABLES=0
 ```
 
-### 4. Start server
+### 5. Start server
 ##### Run the server on the port specified in your .env. After starting, open your browser at http://localhost:PORT to see the landing page.
 
 ```powershell
