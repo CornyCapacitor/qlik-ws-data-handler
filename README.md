@@ -43,7 +43,7 @@ git clone https://github.com/CornyCapacitor/qlik-ws-data-handler
 ##### This will change terminal focus on downloaded repository.
 
 ```powershell
-git clone https://github.com/CornyCapacitor/qlik-ws-data-handler
+cd qlik-ws-data-handler
 ```
 
 ### 3. Install dependencies
