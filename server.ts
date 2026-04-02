@@ -61,8 +61,8 @@ app.get('/get-app-dataset', async (_, res) => {
       console.log(`Connected to App:${appId}`)
 
       // Defining websocket variables
-      let appHandle = null
-      let dataTables = null
+      let appHandle: any = null
+      let dataTables: any = null
       let tableRequesterId = 100
       const timeTrack = new Map()
 
