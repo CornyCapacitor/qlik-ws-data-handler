@@ -1,0 +1,3 @@
+Przetestować rozwiązanie GetLayout z HyperCube, czyli żeby z gotowej tabelki w qliku wyciągnąć format dimensions oraz measures i wyciągnąć z tego do JSONa model danych.
+
+Dodać fetching partialny, żeby duże requesty dzielić na sekcje np. po 100k wierszy
