@@ -4,6 +4,7 @@ import express from 'express'; // server establishing
 import os from 'os'; // getting server IP number
 import path from 'path'; // serving static files
 import WebSocket from 'ws'; // websocket establishing
+import { DataTable, QlikCell, QlikRow, QlikTable } from './types/get-app-dataset';
 
 // Tools setup
 const app = express()
@@ -61,8 +62,8 @@ app.get('/get-app-dataset', async (_, res) => {
       console.log(`Connected to App:${appId}`)
 
       // Defining websocket variables
-      let appHandle: any = null
-      let dataTables: any = null
+      let appHandle: number | null = null
+      let dataTables: DataTable[] | null = null
       let tableRequesterId = 100
       const timeTrack = new Map()
 
@@ -122,7 +123,7 @@ app.get('/get-app-dataset', async (_, res) => {
         if (data.id === 2) {
           // Storing basic tables information inside "dataTables" variable
           dataTables = data.result.qtr
-            .map(table => ({
+            .map((table: QlikTable) => ({
               name: table.qName,
               columnCount: table.qFields.length,
               columns: table.qFields.map(column => column.qName),
@@ -130,6 +131,14 @@ app.get('/get-app-dataset', async (_, res) => {
               time: null,
               rows: []
             }))
+
+          // Check if dataTables exists
+          if (!dataTables) {
+            return res.send({
+              message: 'There seems to be a problem with dataTables variable inside code.',
+              error: 'Variable dataTables is either null or does not exist'
+            })
+          }
 
           // Additional filtering based on SYSTEM_TABLES setting inside .env (0 - filters system tables, 1 - load system tables and its data)
           if (!systemTables) {
@@ -160,14 +169,22 @@ app.get('/get-app-dataset', async (_, res) => {
         // Light repeatable approach to handle every data request separately. This block of code simply reads responses from websocket about requested table matching its id with already stored basic tables variable and if there are still tables that need to download rows, it requests another and prepares for another data reading. The reason why index of 100 is used simply implies that this block of code while should not be changed, can be executed after several other custom ids above, in order to prevent id usage doublet
         if (data.id >= tableRequesterId) {
           // Defining basic variables for concatenation & verification
+          // Check if dataTables exists
+          if (!dataTables) {
+            return res.send({
+              message: 'There seems to be a problem with dataTables variable inside code.',
+              error: 'Variable dataTables is either null or does not exist'
+            })
+          }
+
           const index = data.id - tableRequesterId
           const table = dataTables[index]
 
           // Reading table rows from websocket response
           const tableData = data.result
-          const dataRows = tableData.qData.map(row => {
-            const rowObj = {}
-            row.qValue.forEach((cell, i) => {
+          const dataRows: Record<string, string>[] = tableData.qData.map((row: QlikRow) => {
+            const rowObj: Record<string, string> = {}
+            row.qValue.forEach((cell: QlikCell, i: number) => {
               rowObj[table.columns[i]] = cell.qText
             })
             return rowObj
@@ -229,11 +246,14 @@ app.get('/get-app-dataset', async (_, res) => {
 })
 
 // Getting local IP for app.listen console.log
-function getLocalIP() {
+function getLocalIP(): string {
   const interfaces = os.networkInterfaces();
 
   for (const name in interfaces) {
-    for (const iface of interfaces[name]) {
+    const addrs = interfaces[name];
+    if (!addrs) continue; // <-- jeśli undefined, pomijamy
+
+    for (const iface of addrs) {
       if (iface.family === 'IPv4' && !iface.internal) {
         return iface.address;
       }
