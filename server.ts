@@ -1,18 +1,24 @@
 // Imports
 import dotenv from 'dotenv'; // .env reading
-import express from 'express'; // server establishing
+import express, { Application } from 'express'; // server establishing
 import os from 'os'; // getting server IP number
 import path from 'path'; // serving static files
 import WebSocket from 'ws'; // websocket establishing
+
+// Types
 import { DataTable, QlikCell, QlikRow, QlikTable } from './types/get-app-dataset';
 
-// Tools setup
-const app = express()
-app.use(express.json())
-dotenv.config()
+// Routes
+import rootRoute from './routes/root';
 
-// Serving static files from interface folder
-app.use(express.static(path.join(process.cwd(), 'interface')));
+// App init
+const app: Application = express()
+
+// Middlewares
+app.use(express.json())
+
+// Env files config
+dotenv.config()
 
 // Defining env variables setup
 const PORT = process.env.PORT
@@ -22,9 +28,8 @@ const apiKey = process.env.APIKEY
 const systemTables = process.env.SYSTEM_TABLES === '1'
 
 // Home page
-app.get('/', (_, res) => {
-  res.sendFile(path.join(process.cwd(), 'interface', 'index.html'))
-})
+app.use('/', express.static(path.join(__dirname, 'public')))
+app.use('/', rootRoute)
 
 // Main server endpoint logic to fetch tables data
 app.get('/get-app-dataset', async (_, res) => {
