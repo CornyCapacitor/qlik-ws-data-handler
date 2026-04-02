@@ -9,13 +9,15 @@ import WebSocket from 'ws'; // websocket establishing
 import { DataTable, QlikCell, QlikRow, QlikTable } from './types/get-app-dataset';
 
 // Routes
+import datasetRoute from './routes/dataset';
 import rootRoute from './routes/root';
 
 // App init
 const app: Application = express()
 
-// Middlewares
+// App config
 app.use(express.json())
+app.use('/', express.static(path.join(__dirname, 'public')))
 
 // Env files config
 dotenv.config()
@@ -27,9 +29,9 @@ const appId = process.env.APPID
 const apiKey = process.env.APIKEY
 const systemTables = process.env.SYSTEM_TABLES === '1'
 
-// Home page
-app.use('/', express.static(path.join(__dirname, 'public')))
+// REST
 app.use('/', rootRoute)
+app.use('/api/dataset', datasetRoute)
 
 // Main server endpoint logic to fetch tables data
 app.get('/get-app-dataset', async (_, res) => {
