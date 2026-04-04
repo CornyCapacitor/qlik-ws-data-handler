@@ -38,7 +38,7 @@ Make sure you have Node.js installed. If not, download it [here](https://nodejs.
 ##### This will clone this repository to your local machine.
 
 ```powershell
-git clone https://github.com/CornyCapacitor/qlik-ws-data-handler
+git clone -b javascript https://github.com/CornyCapacitor/qlik-ws-data-handler
 ```
 
 ### 2. Change directory after cloning the repository (if the repository was downloaded directly from GitHub, just open this folder in code editor)
