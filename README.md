@@ -1,3 +1,5 @@
+##### ⚠️ Warning: TypeScript version of this repository is under development. Please select javascript branch and follow the instruction on selected repository version.
+
 # Qlik API Engine Test
 
 A simple Express.js server to test the Qlik API Engine with a landing page and the ability to preview set data at `/qlik`.
