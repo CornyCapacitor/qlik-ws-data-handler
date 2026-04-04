@@ -5,24 +5,26 @@ export type DataTable = {
   columns: string[],
   rowCount: number,
   time: number,
-  rows: DataRow[]
+  rows: DataRow[],
+  offset: number,
+  chunkSize: number
 }
 
 export type QlikTable = {
-  qName: string;
-  qFields: { qName: string }[];
-  qNoOfRows: number;
+  qName: string,
+  qFields: { qName: string }[],
+  qNoOfRows: number
 }
 
 export type QlikCell = {
-  qText: string;
-  qNum?: number;
+  qText: string,
+  qNum?: number
 };
 
 export type QlikRow = {
-  qValue: QlikCell[];
+  qValue: QlikCell[]
 };
 
 export type QlikTableData = {
-  qData: QlikRow[];
+  qData: QlikRow[]
 };

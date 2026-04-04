@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import WebSocket from 'ws'; // websocket establishing
 import { DataTable, QlikCell, QlikRow, QlikTable } from '../types/dataset';
 
@@ -9,7 +11,9 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
   const tenantUrl = process.env.TENANTURL
   const appId = process.env.APPID
   const apiKey = process.env.APIKEY
-  const systemTables = process.env.SYSTEM_TABLES === '1'
+  const systemTables: boolean = process.env.SYSTEM_TABLES === '1' || false
+  const singleRequestLimit: number = Number(process.env.SINGLE_REQUEST_LIMIT) || 100000
+  const logging = process.env.LOGGING || 0
 
   // Establishing websocket connection and storing it inside ws variable
   try {
@@ -34,8 +38,8 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
 
     // "Open" websocket event
     ws.on('open', () => {
-      console.log('-----')
-      console.log(`Connected to App:${appId}`)
+      logging ?? console.log('-----')
+      logging ?? console.log(`Connected to App:${appId}`)
 
       // Defining websocket variables
       let appHandle: number | null = null
@@ -60,8 +64,8 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
         // Check if message received has ID
         if (!data.id) return
 
-        console.log('-----')
-        console.log(`Qlik response (id: ${data.id}):`, data)
+        logging ?? console.log('-----')
+        logging ?? console.log(`Qlik response (id: ${data.id}):`, data)
 
         // Reading app connection request
         if (data.id === 1) {
@@ -104,8 +108,10 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
               columnCount: table.qFields.length,
               columns: table.qFields.map(column => column.qName),
               rowCount: table.qNoOfRows,
-              time: null,
-              rows: []
+              time: 0,
+              rows: [],
+              offset: 0,
+              chunkSize: Math.min(table.qNoOfRows, singleRequestLimit)
             }))
 
           // Check if dataTables exists
@@ -128,10 +134,10 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
             method: 'GetTableData',
             handle: appHandle,
             params: {
-              qOffset: 0,
-              qRows: dataTables[0].rowCount,
+              qOffset: dataTables[0].offset,
+              qRows: dataTables[0].chunkSize,
               qSyntheticMode: false,
-              qTableName: dataTables[0].name
+              qTableName: dataTables[0].name,
             }
           }));
 
@@ -155,6 +161,7 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
 
           const index = data.id - tableRequesterId
           const table = dataTables[index]
+          const currentTableTime = table.time
 
           // Reading table rows from websocket response
           const tableData = data.result
@@ -172,49 +179,98 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
             timing.responseTime = performance.now()
 
             const duration = timing.responseTime - timing.requestTime
-            dataTables[index].time = Math.round((duration / 1000) * 100) / 100
-            console.log(`⏱️ ${dataTables[index].name}: ${duration.toFixed(2)} ms`)
+            dataTables[index].time = currentTableTime + Math.round((duration / 1000) * 100) / 100
           }
 
-          // Saving table rows information to specific table inside dataTables variable
-          table.rows = dataRows
+          // Add table rows information to specific table inside dataTables variable
+          table.rows.push(...dataRows)
 
-          // If there are still tables left that need the rows data, send another incremental request
-          if (index + 1 < dataTables.length) {
+          // Check if the table is fully fetched
+          if (table.rows.length !== table.rowCount) {
+            // Defining new offset and chunkSize values for that table
+            const newOffset = table.offset + singleRequestLimit
+            const newChunkSize = Math.min(singleRequestLimit, (table.rowCount - newOffset))
+
+            // If there are still rows to be fetched
+            console.log(`Need to fetch more for table: ${table.name}. Currently fetched: ${newOffset} rows. Next fetch: ${newChunkSize} rows. Actual fetch time: ${table.time}`)
+
+            table.offset = newOffset
+            table.chunkSize = newChunkSize
+
             ws.send(JSON.stringify({
               jsonrpc: '2.0',
-              id: (tableRequesterId + index + 1),
+              id: (tableRequesterId + index),
               method: 'GetTableData',
               handle: appHandle,
               params: {
-                qOffset: 0,
-                qRows: dataTables[index + 1].rowCount,
+                qOffset: table.offset,
+                qRows: table.chunkSize,
                 qSyntheticMode: false,
-                qTableName: dataTables[index + 1].name
+                qTableName: table.name
               }
             }))
 
             // Save request time for calculation
-            timeTrack.set((tableRequesterId + index + 1), {
+            timeTrack.set((tableRequesterId + index), {
               requestTime: performance.now(),
               responseTime: null
             })
 
-            // If everything is loaded, send response of dataTables variable
           } else {
-            // Close connection when everything is done
-            ws.close()
+            // If there are all rows fetched for that table
+            console.log(`All rows fetched for table: ${table.name}. Rows: ${table.rowCount}. Total time: ${table.time}`)
 
-            // Return data
-            return res.send(dataTables)
+            // If there are still tables left that need the rows data, send another incremental request
+            if (index + 1 < dataTables.length) {
+              ws.send(JSON.stringify({
+                jsonrpc: '2.0',
+                id: (tableRequesterId + index + 1),
+                method: 'GetTableData',
+                handle: appHandle,
+                params: {
+                  qOffset: dataTables[index + 1].offset,
+                  qRows: dataTables[index + 1].chunkSize,
+                  qSyntheticMode: false,
+                  qTableName: dataTables[index + 1].name
+                }
+              }))
+
+              // Save request time for calculation
+              timeTrack.set((tableRequesterId + index + 1), {
+                requestTime: performance.now(),
+                responseTime: null
+              })
+
+              // If everything is loaded, send response of dataTables variable
+            } else {
+              // Close connection when everything is done
+              ws.close()
+
+              // Delete offset and chunkSize from all tables
+              const cleanedTables = dataTables.map(({ offset, chunkSize, ...rest }) => rest)
+
+              // Save to JSON file in root
+              const filePath = path.join(__dirname, 'dataTables.json')
+              fs.writeFile(filePath, JSON.stringify(cleanedTables, null, 2), (err) => {
+                if (err) {
+                  console.error('Error writing JSON file:', err)
+                } else {
+                  console.log(`Data saved to ${filePath}`)
+                }
+              })
+
+              // Return data
+              return res.send(cleanedTables)
+
+            }
           }
         }
       })
 
       // On closing wesbocket connection, send information to the console
       ws.on('close', () => {
-        console.log('-----')
-        console.log(`Disconnected from App:${appId}`)
+        logging ?? console.log('-----')
+        logging ?? console.log(`Disconnected from App:${appId}`)
       })
     })
   } catch (err) {
