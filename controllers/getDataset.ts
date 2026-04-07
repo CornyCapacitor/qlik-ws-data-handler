@@ -1,6 +1,4 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
 import WebSocket from 'ws'; // websocket establishing
 import { DataTable, QlikCell, QlikRow, QlikTable } from '../types/dataset';
 
@@ -250,18 +248,17 @@ export const getDataset = async (req: Request, res: Response): Promise<Response 
               const cleanedTables = dataTables.map(({ offset, chunkSize, ...rest }) => rest)
 
               // Save to JSON file in root
-              const filePath = path.join(__dirname, 'dataTables.json')
-              fs.writeFile(filePath, JSON.stringify(cleanedTables, null, 2), (err) => {
-                if (err) {
-                  console.error('Error writing JSON file:', err)
-                } else {
-                  console.log(`Data saved to ${filePath}`)
-                }
-              })
+              // const filePath = path.join(__dirname, 'dataTables.json')
+              // fs.writeFile(filePath, JSON.stringify(cleanedTables, null, 2), (err) => {
+              //   if (err) {
+              //     console.error('Error writing JSON file:', err)
+              //   } else {
+              //     console.log(`Data saved to ${filePath}`)
+              //   }
+              // })
 
               // Return data
               return res.send(cleanedTables)
-
             }
           }
         }
